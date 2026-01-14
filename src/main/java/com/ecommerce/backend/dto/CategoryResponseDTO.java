@@ -7,14 +7,11 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductResponseDTO {
+public class CategoryResponseDTO {
     
     private Long id;
     private String name;
-    private Double price;
-    private Long categoryId;
-    private String categoryName;
-    private Integer stockQuantity;
+    private String description;
     private String imageUrl;
-    private String videoUrl;
+    private Integer productCount;  // How many products in this category
 }
