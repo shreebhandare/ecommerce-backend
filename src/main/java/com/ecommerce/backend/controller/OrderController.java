@@ -12,7 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.bind.annotation.RequestParam;
+import com.ecommerce.backend.dto.PagedResponseDTO;
 import com.ecommerce.backend.dto.OrderResponseDTO;
 import com.ecommerce.backend.entity.User;
 import com.ecommerce.backend.repository.UserRepository;
@@ -72,6 +73,20 @@ public class OrderController {
             @PathVariable Long orderId) {
         User user = getCurrentUser(userDetails);
         OrderResponseDTO response = orderService.cancelOrder(user, orderId);
+        return ResponseEntity.ok(response);
+    }
+
+    // GET /api/orders/paged - Get order history with pagination
+    @GetMapping("/paged")
+    public ResponseEntity<PagedResponseDTO<OrderResponseDTO>> getOrderHistoryPaged(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        User user = getCurrentUser(userDetails);
+        PagedResponseDTO<OrderResponseDTO> response = 
+                orderService.getOrderHistory(user, page, size);
+        
         return ResponseEntity.ok(response);
     }
 }

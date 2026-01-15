@@ -62,13 +62,27 @@ public class CartService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                     "Product not found with id: " + request.getProductId()));
         
-        // Step 3: Check if product already in cart
+        // Step 2.1: Check if product already in cart
         CartItem cartItem = cartItemRepository.findByCartAndProduct(cart, product)
                 .orElse(null);
-        
+
+        // Step 2.2: Calculate total quantity (existing + new)
+        int existingQuantity = (cartItem != null) ? cartItem.getQuantity() : 0;
+        int totalQuantity = existingQuantity + request.getQuantity();
+
+        // Step 2.3: Validate total quantity against stock
+        if (product.getStockQuantity() < totalQuantity) {
+            throw new RuntimeException(
+                "Insufficient stock. Available: " + product.getStockQuantity() + 
+                ", Already in cart: " + existingQuantity + 
+                ", Requested: " + request.getQuantity()
+            );
+        }
+
+        // Step 3: Update or create cart item
         if (cartItem != null) {
             // Product exists in cart - update quantity
-            cartItem.setQuantity(cartItem.getQuantity() + request.getQuantity());
+            cartItem.setQuantity(totalQuantity);
         } else {
             // Product not in cart - create new cart item
             cartItem = new CartItem();

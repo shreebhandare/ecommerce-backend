@@ -12,6 +12,11 @@ import com.ecommerce.backend.entity.Product;
 import com.ecommerce.backend.exception.ResourceNotFoundException;
 import com.ecommerce.backend.repository.CategoryRepository;
 import com.ecommerce.backend.repository.ProductRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import com.ecommerce.backend.dto.PagedResponseDTO;
 
 @Service
 public class ProductService {
@@ -88,6 +93,36 @@ public class ProductService {
                 product.getStockQuantity(),
                 product.getImageUrl(),
                 product.getVideoUrl()
+        );
+    }
+
+    // Get products with pagination
+    public PagedResponseDTO<ProductResponseDTO> getProducts(int page, int size, String sortBy, String sortDir) {
+        // Create sort object
+        Sort sort = sortDir.equalsIgnoreCase("desc") 
+                ? Sort.by(sortBy).descending() 
+                : Sort.by(sortBy).ascending();
+        
+        // Create pageable object
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        // Get paginated products
+        Page<Product> productPage = productRepository.findAll(pageable);
+        
+        // Convert to DTOs
+        List<ProductResponseDTO> productDTOs = productPage.getContent().stream()
+                .map(this::convertToProductResponseDTO)
+                .collect(Collectors.toList());
+        
+        // Build paginated response
+        return new PagedResponseDTO<>(
+                productDTOs,
+                productPage.getNumber(),
+                productPage.getSize(),
+                productPage.getTotalElements(),
+                productPage.getTotalPages(),
+                productPage.isFirst(),
+                productPage.isLast()
         );
     }
 }

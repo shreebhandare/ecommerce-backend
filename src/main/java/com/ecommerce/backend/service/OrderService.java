@@ -16,7 +16,11 @@ import com.ecommerce.backend.exception.ResourceNotFoundException;
 import com.ecommerce.backend.repository.CartRepository;
 import com.ecommerce.backend.repository.OrderItemRepository;
 import com.ecommerce.backend.repository.OrderRepository;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import com.ecommerce.backend.dto.PagedResponseDTO;
 import jakarta.transaction.Transactional;
 
 @Service
@@ -159,5 +163,30 @@ public class OrderService {
         
         // Step 4: Return updated order
         return convertToOrderResponseDTO(order);
+    }
+
+    // Get order history with pagination
+    public PagedResponseDTO<OrderResponseDTO> getOrderHistory(User user, int page, int size) {
+        // Create pageable object (sort by orderDate descending - newest first)
+        Pageable pageable = PageRequest.of(page, size, Sort.by("orderDate").descending());
+        
+        // Get paginated orders
+        Page<Order> orderPage = orderRepository.findByUser(user, pageable);
+        
+        // Convert to DTOs
+        List<OrderResponseDTO> orderDTOs = orderPage.getContent().stream()
+                .map(this::convertToOrderResponseDTO)
+                .collect(Collectors.toList());
+        
+        // Build paginated response
+        return new PagedResponseDTO<>(
+                orderDTOs,
+                orderPage.getNumber(),
+                orderPage.getSize(),
+                orderPage.getTotalElements(),
+                orderPage.getTotalPages(),
+                orderPage.isFirst(),
+                orderPage.isLast()
+        );
     }
 }
