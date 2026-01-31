@@ -3,25 +3,29 @@ package com.ecommerce.backend.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.ecommerce.backend.dto.OrderItemResponseDTO;
 import com.ecommerce.backend.dto.OrderResponseDTO;
+import com.ecommerce.backend.dto.PagedResponseDTO;
 import com.ecommerce.backend.entity.Cart;
 import com.ecommerce.backend.entity.Order;
 import com.ecommerce.backend.entity.OrderItem;
 import com.ecommerce.backend.entity.OrderStatus;
+import com.ecommerce.backend.entity.Product;
 import com.ecommerce.backend.entity.User;
 import com.ecommerce.backend.exception.ResourceNotFoundException;
 import com.ecommerce.backend.repository.CartRepository;
 import com.ecommerce.backend.repository.OrderItemRepository;
 import com.ecommerce.backend.repository.OrderRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import com.ecommerce.backend.dto.PagedResponseDTO;
+import com.ecommerce.backend.repository.ProductRepository;
+
 import jakarta.transaction.Transactional;
+
 
 @Service
 public class OrderService {
@@ -30,15 +34,18 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final CartRepository cartRepository;
     private final CartService cartService;
+    private final ProductRepository productRepository;
 
     public OrderService(OrderRepository orderRepository,
-                       OrderItemRepository orderItemRepository,
-                       CartRepository cartRepository,
-                       CartService cartService) {
+                    OrderItemRepository orderItemRepository,
+                    CartRepository cartRepository,
+                    CartService cartService,
+                    ProductRepository productRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
         this.cartService = cartService;
+        this.productRepository = productRepository;
     }
 
     // Methods will go here
@@ -188,5 +195,40 @@ public class OrderService {
                 orderPage.isFirst(),
                 orderPage.isLast()
         );
+    }
+
+    // Mark order as paid and reduce stock (called by webhook)
+    @Transactional
+    public void markOrderAsPaid(Long orderId) {
+        // Find order
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
+        
+        // Verify order is in PENDING status
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new RuntimeException("Order is not in PENDING status. Current status: " + order.getStatus());
+        }
+        
+        // Reduce stock for each order item
+        for (var orderItem : order.getItems()) {
+            Product product = orderItem.getProduct();
+            
+            // Check if sufficient stock available
+            if (product.getStockQuantity() < orderItem.getQuantity()) {
+                throw new RuntimeException(
+                    "Insufficient stock for product: " + product.getName() + 
+                    ". Available: " + product.getStockQuantity() + 
+                    ", Required: " + orderItem.getQuantity()
+                );
+            }
+            
+            // Reduce stock
+            product.setStockQuantity(product.getStockQuantity() - orderItem.getQuantity());
+            productRepository.save(product);
+        }
+        
+        // Update order status to PAID
+        order.setStatus(OrderStatus.PAID);
+        orderRepository.save(order);
     }
 }
